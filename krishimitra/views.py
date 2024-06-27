@@ -19,118 +19,47 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import JsonResponse
+import numpy as np
+import joblib
+import os
+import tensorflow as tf
+
 class CropYieldPrediction(APIView):
-    def preprocess_data(
-        self,
-        name,
-        season,
-        state,
-        area,
-        annual_rainfall,
-        fertilizer_usage,
-        pesticide_usage,
-    ):
+    def preprocess_data(self, name, season, state, area, annual_rainfall, fertilizer_usage, pesticide_usage):
         state_correlation = {
-            "Assam": 0,
-            "Karnataka": 1,
-            "Meghalaya": 2,
-            "West Bengal": 3,
-            "Puducherry": 4,
-            "Goa": 5,
-            "Kerala": 6,
-            "Andhra Pradesh": 7,
-            "Tamil Nadu": 8,
-            "Bihar": 9,
-            "Gujarat": 10,
-            "Maharashtra": 11,
-            "Mizoram": 12,
-            "Punjab": 13,
-            "Uttar Pradesh": 14,
-            "Haryana": 15,
-            "Himachal Pradesh": 16,
-            "Madhya Pradesh": 17,
-            "Tripura": 18,
-            "Nagaland": 19,
-            "Odisha": 20,
-            "Chhattisgarh": 21,
-            "Uttarakhand": 22,
-            "Jharkhand": 23,
-            "Delhi": 24,
-            "Manipur": 25,
-            "Jammu and Kashmir": 26,
-            "Telangana": 27,
-            "Arunachal Pradesh": 28,
-            "Sikkim": 29,
+            "Assam": 0, "Karnataka": 1, "Meghalaya": 2, "West Bengal": 3, "Puducherry": 4, 
+            "Goa": 5, "Kerala": 6, "Andhra Pradesh": 7, "Tamil Nadu": 8, "Bihar": 9, 
+            "Gujarat": 10, "Maharashtra": 11, "Mizoram": 12, "Punjab": 13, "Uttar Pradesh": 14, 
+            "Haryana": 15, "Himachal Pradesh": 16, "Madhya Pradesh": 17, "Tripura": 18, 
+            "Nagaland": 19, "Odisha": 20, "Chhattisgarh": 21, "Uttarakhand": 22, 
+            "Jharkhand": 23, "Delhi": 24, "Manipur": 25, "Jammu and Kashmir": 26, 
+            "Telangana": 27, "Arunachal Pradesh": 28, "Sikkim": 29,
         }
 
         season_correlation = {
-            "Autumn": 0,
-            "Summer": 1,
-            "Winter": 2,
-            "Kharif": 3,
-            "Rabi": 4,
-            "Whole Year": 5,
+            "Autumn": 0, "Summer": 1, "Winter": 2, "Kharif": 3, "Rabi": 4, "Whole Year": 5,
         }
 
         crop_correlation = {
-            "Arecanut": 0,
-            "Arhar/Tur": 1,
-            "Castor seed": 2,
-            "Coconut ": 3,
-            "Cotton(lint)": 4,
-            "Dry chillies": 5,
-            "Gram": 6,
-            "Jute": 7,
-            "Linseed": 8,
-            "Maize": 9,
-            "Mesta": 10,
-            "Niger seed": 11,
-            "Onion": 12,
-            "Other  Rabi pulses": 13,
-            "Potato": 14,
-            "Rapeseed &Mustard": 15,
-            "Rice": 16,
-            "Sesamum": 17,
-            "Small millets": 18,
-            "Sugarcane": 19,
-            "Sweet potato": 20,
-            "Tapioca": 21,
-            "Tobacco": 22,
-            "Turmeric": 23,
-            "Wheat": 24,
-            "Bajra": 25,
-            "Black pepper": 26,
-            "Cardamom": 27,
-            "Coriander": 28,
-            "Garlic": 29,
-            "Ginger": 30,
-            "Groundnut": 31,
-            "Horse-gram": 32,
-            "Jowar": 33,
-            "Ragi": 34,
-            "Cashewnut": 35,
-            "Banana": 36,
-            "Soyabean": 37,
-            "Barley": 38,
-            "Khesari": 39,
-            "Masoor": 40,
-            "Moong(Green Gram)": 41,
-            "Other Kharif pulses": 42,
-            "Safflower": 43,
-            "Sannhamp": 44,
-            "Sunflower": 45,
-            "Urad": 46,
-            "Peas & beans (Pulses)": 47,
-            "other oilseeds": 48,
-            "Other Cereals": 49,
-            "Cowpea(Lobia)": 50,
-            "Oilseeds total": 51,
-            "Guar seed": 52,
-            "Other Summer Pulses": 53,
-            "Moth": 54,
+            "Arecanut": 0, "Arhar/Tur": 1, "Castor seed": 2, "Coconut ": 3, "Cotton(lint)": 4, 
+            "Dry chillies": 5, "Gram": 6, "Jute": 7, "Linseed": 8, "Maize": 9, "Mesta": 10, 
+            "Niger seed": 11, "Onion": 12, "Other  Rabi pulses": 13, "Potato": 14, 
+            "Rapeseed &Mustard": 15, "Rice": 16, "Sesamum": 17, "Small millets": 18, 
+            "Sugarcane": 19, "Sweet potato": 20, "Tapioca": 21, "Tobacco": 22, "Turmeric": 23, 
+            "Wheat": 24, "Bajra": 25, "Black pepper": 26, "Cardamom": 27, "Coriander": 28, 
+            "Garlic": 29, "Ginger": 30, "Groundnut": 31, "Horse-gram": 32, "Jowar": 33, 
+            "Ragi": 34, "Cashewnut": 35, "Banana": 36, "Soyabean": 37, "Barley": 38, 
+            "Khesari": 39, "Masoor": 40, "Moong(Green Gram)": 41, "Other Kharif pulses": 42, 
+            "Safflower": 43, "Sannhamp": 44, "Sunflower": 45, "Urad": 46, "Peas & beans (Pulses)": 47, 
+            "other oilseeds": 48, "Other Cereals": 49, "Cowpea(Lobia)": 50, "Oilseeds total": 51, 
+            "Guar seed": 52, "Other Summer Pulses": 53, "Moth": 54,
         }
 
-        name = crop_correlation[name] + 1
+        name = crop_correlation[name]
         state = state_correlation[state]
         season = season_correlation[season]
         area = float(area)
@@ -138,57 +67,60 @@ class CropYieldPrediction(APIView):
         fertilizer_usage = float(fertilizer_usage)
         pesticide_usage = float(pesticide_usage)
 
-        return [
-            name,
-            state,
-            season,
-            area,
-            annual_rainfall,
-            fertilizer_usage,
-            pesticide_usage,
-        ]
+        return np.array([[name, state, season, area, annual_rainfall, fertilizer_usage, pesticide_usage]])
+
+    def load_models(self, crop):
+        models_dir = 'Models'
+        nn_model_path = os.path.join(models_dir, f"{crop}_nn_model.h5")
+        xgb_model_path = os.path.join(models_dir, f"{crop}_xgb_model.pkl")
+        meta_model_path = os.path.join(models_dir, f"{crop}_meta_model.pkl")
+
+        nn_model = tf.keras.models.load_model(nn_model_path)
+        xgb_model = joblib.load(xgb_model_path)
+        meta_model = joblib.load(meta_model_path)
+
+        return nn_model, xgb_model, meta_model
+
+    def ensemble_predict(self, nn_model, xgb_model, meta_model, data):
+        nn_pred = nn_model.predict(data)
+        xgb_pred = xgb_model.predict(data)
+        ensemble_pred = np.column_stack((nn_pred, xgb_pred))
+        final_pred = meta_model.predict(ensemble_pred)
+
+        return final_pred
 
     def post(self, request):
-        if request.method == "POST":
-            serializer = CropYieldSerializer(data=request.data)
-            if serializer.is_valid():
-                username = serializer.data["username"]  # type: ignore
-                name = serializer.data["name"]  # type: ignore
-                season = serializer.data["season"]  # type: ignore
-                state = serializer.data["state"]  # type: ignore
-                area = serializer.data["area"]  # type: ignore
-                annual_rainfall = serializer.data["annual_rainfall"]  # type: ignore
-                fertilizer_usage = serializer.data["fertilizer_usage"]  # type: ignore
-                pesticide_usage = serializer.data["pesticide_usage"]  # type: ignore
+        serializer = CropYieldSerializer(data=request.data)
+        if serializer.is_valid():
+            username = serializer.data["username"]
+            name = serializer.data["name"]
+            season = serializer.data["season"]
+            state = serializer.data["state"]
+            area = serializer.data["area"]
+            annual_rainfall = serializer.data["annual_rainfall"]
+            fertilizer_usage = serializer.data["fertilizer_usage"]
+            pesticide_usage = serializer.data["pesticide_usage"]
 
-                data = self.preprocess_data(
-                    name,
-                    season,
-                    state,
-                    area,
-                    annual_rainfall,
-                    fertilizer_usage,
-                    pesticide_usage,
-                )
+            data = self.preprocess_data(name, season, state, area, annual_rainfall, fertilizer_usage, pesticide_usage)
 
-                prediction = predictYield(data)
+            nn_model, xgb_model, meta_model = self.load_models(name)
+            prediction = self.ensemble_predict(nn_model, xgb_model, meta_model, data)
 
-                crop_yield = CropYield(
-                    username=username,
-                    name=name,
-                    season=season,
-                    state=state,
-                    area=area,
-                    annual_rainfall=annual_rainfall,
-                    fertilizer_usage=fertilizer_usage,
-                    pesticide_usage=pesticide_usage,
-                )
-                crop_yield.save()
-                return Response(round(prediction), status=status.HTTP_201_CREATED)
-            else:
-                print(serializer.errors)
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            crop_yield = CropYield(
+                username=username,
+                name=name,
+                season=season,
+                state=state,
+                area=area,
+                annual_rainfall=annual_rainfall,
+                fertilizer_usage=fertilizer_usage,
+                pesticide_usage=pesticide_usage,
+            )
+            crop_yield.save()
 
+            return JsonResponse({"data": name, "status": "200"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CropRecommendation(APIView):
 
