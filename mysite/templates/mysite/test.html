@@ -1,0 +1,15 @@
+{% load static tailwind_tags %}
+<html>
+  <head>
+    <title>Test Page</title>
+    {% tailwind_css %}
+  <body>
+    <h1>Test Page</h1>
+    <div class="flex justify-center">
+      <form method="post">
+        {% csrf_token %} {{form}} 
+        <input type="submit" value="Submit" class="bg-green-500 text-white p-[10px] rounded-lg hover:bg-slate-800 hover:text-white w-[130px]">
+      </form>
+    </div>
+  </body>
+</html>
